@@ -1,0 +1,5 @@
+# optional extras for local analysis (not needed on the GPU pod)
+#   librosa    -> higher-quality resampling for the telephony augmentation
+#   matplotlib -> Pareto / quality-vs-cost plots
+librosa>=0.10
+matplotlib>=3.7

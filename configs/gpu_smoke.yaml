@@ -1,0 +1,23 @@
+# Cheap CUDA validation before the full sweep: real model, 1 language, 5 samples.
+# If this prints a leaderboard row, the expensive sweep will work too.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: faster-whisper-large-v3-fp16
+    backend: faster_whisper
+    model_size: large-v3
+    device: cuda
+    compute_type: float16
+    beam_size: 1
+
+datasets:
+  - name: fleurs-en-smoke
+    kind: hf
+    hf_id: google/fleurs
+    config: en_us
+    split: test
+    text_key: transcription
+    language: en
+    whisper_lang: en
+    max_samples: 5

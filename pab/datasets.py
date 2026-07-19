@@ -10,6 +10,7 @@ nothing beyond soundfile.
 """
 from __future__ import annotations
 import io
+from itertools import islice
 import numpy as np
 
 TARGET_SR = 16000
@@ -33,15 +34,14 @@ def _to_mono16k(array, sr) -> np.ndarray:
 
 
 def load_hf(hf_id, config, split, text_key, language,
-            max_samples=None, **_ignored):
+            max_samples=None, streaming=True, **_ignored):
     import soundfile as sf
     from datasets import load_dataset, Audio
 
-    ds = load_dataset(hf_id, config, split=split)
-    ds = ds.cast_column("audio", Audio(decode=False))   # raw bytes/path, no decode
-    n = len(ds) if max_samples is None else min(max_samples, len(ds))
-    for i in range(n):
-        ex = ds[i]
+    ds = load_dataset(hf_id, config, split=split, streaming=streaming)
+    ds = ds.cast_column("audio", Audio(decode=False))   # raw bytes/path, no torchcodec
+    it = islice(ds, max_samples) if max_samples else ds
+    for i, ex in enumerate(it):
         a = ex["audio"]
         if a.get("bytes"):
             arr, sr = sf.read(io.BytesIO(a["bytes"]), dtype="float32")
@@ -66,6 +66,7 @@ def load_dataset_spec(spec):
             text_key=spec.get("text_key", "text"),
             language=spec.get("language", "und"),
             max_samples=spec.get("max_samples"),
+            streaming=spec.get("streaming", True),
         )
     else:
         raise ValueError(f"unknown dataset kind: {kind!r}")

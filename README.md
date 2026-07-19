@@ -34,16 +34,28 @@ bash scripts/run_local_smoke.sh
 Transcribes 10 LibriSpeech clips with `faster-whisper-tiny` (CPU/int8) and prints a
 leaderboard — an end-to-end proof of the pipeline.
 
-## Full multilingual sweep (rented GPU)
+## Full multilingual sweep on RunPod
 
-```bash
-# on the GPU box
-bash scripts/run_gpu_sweep.sh
-# copy results/ back, then locally:
-python -m pab.report --gpu-price 0.40
-```
+Use a **native (passthrough) GPU** so latency/RTF reflect real silicon — an RTX 4090
+(~$0.34–0.50/hr) is plenty. Avoid network-virtualized GPUs (e.g. GPU-over-TCP) for the
+timing runs: they contaminate the RTF/cost numbers this benchmark exists to measure.
 
-Edit `configs/fleurs_multi.yaml` to scale languages up to dozens and add models.
+1. Launch a pod: **RTX 4090**, a **PyTorch / CUDA 12** template, ~30 GB disk.
+2. Get this repo onto the pod (git clone, or `runpodctl send`).
+3. On the pod:
+   ```bash
+   bash scripts/setup_pod.sh       # installs deps + cuBLAS/cuDNN, sanity-checks CUDA
+   bash scripts/run_gpu_sweep.sh   # 5-sample fail-fast, then the full sweep + leaderboard
+   ```
+4. Copy `results/` back to your laptop and **stop the pod** (per-second billing — a stopped pod is $0):
+   ```bash
+   # from your laptop
+   scp -r <pod>:/workspace/polyglot-asr-bench/results ./results
+   python -m pab.report --gpu-price 0.40   # re-score/plot offline, no GPU
+   ```
+
+Only transcription is GPU-bound; scoring runs offline. Scale `configs/fleurs_multi.yaml`
+up to dozens of languages and add models there.
 
 ## Metrics
 
