@@ -1,0 +1,23 @@
+# Tiny end-to-end check that runs on a laptop (CPU) in a couple of minutes.
+# Proves the pipeline: load audio -> transcribe -> score WER/CER/RTF/cost.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: faster-whisper-tiny-int8
+    backend: faster_whisper
+    model_size: tiny
+    device: cpu
+    compute_type: int8
+    beam_size: 1
+
+datasets:
+  - name: librispeech-dummy-en
+    kind: hf
+    hf_id: hf-internal-testing/librispeech_asr_dummy
+    config: clean
+    split: validation
+    text_key: text
+    language: en
+    whisper_lang: en
+    max_samples: 10

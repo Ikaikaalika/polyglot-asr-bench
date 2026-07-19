@@ -1,0 +1,10 @@
+# core (needed for the smoke test)
+faster-whisper>=1.0
+datasets>=2.18
+soundfile>=0.12
+numpy>=1.24
+PyYAML>=6.0
+
+# optional: better resampling (telephony aug) + Pareto plots
+librosa>=0.10
+matplotlib>=3.7

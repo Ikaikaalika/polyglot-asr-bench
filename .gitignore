@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+
+# prediction caches are regenerated; commit curated sets explicitly with `git add -f`
+results/predictions/*.jsonl
+!results/predictions/.gitkeep
