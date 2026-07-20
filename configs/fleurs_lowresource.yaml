@@ -1,0 +1,111 @@
+# Long-tail / low-resource tier.
+#
+# The headline question for a global speech platform isn't "how good is Whisper on
+# English" — it's "where does it fall off a cliff, and which languages can we not ship?"
+# This config walks down the resource curve, from a high-resource anchor to languages
+# with very little training data.
+#
+# Deliberately cheap: one reference model, clean audio only, 150 samples/language.
+# Enough to rank languages and expose the failure cases; widen later for headline numbers.
+#
+# Notes:
+#  - ceb (Cebuano) is NOT in Whisper's language list -> whisper_lang omitted on purpose
+#    so it auto-detects. Watch it mis-identify the language; that's the finding.
+#  - For km/lo (no word spaces), WER is close to meaningless -> read CER instead.
+#  - Hawaiian and Tongan are absent from FLEURS entirely (no reference transcripts),
+#    which is exactly why they need a different approach (MMS + aligned Bible audio)
+#    rather than this benchmark.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: faster-whisper-large-v3-fp16
+    backend: faster_whisper
+    model_size: large-v3
+    device: cuda
+    compute_type: float16
+    beam_size: 1
+
+datasets:
+  # --- high-resource anchor (already cached from the main sweep -> free) ---
+  - name: fleurs-en
+    kind: hf
+    hf_id: google/fleurs
+    config: en_us
+    split: test
+    text_key: transcription
+    language: en
+    whisper_lang: en
+    max_samples: 150
+
+  # --- contact-center relevant: Philippines BPO market ---
+  - name: fleurs-tl
+    kind: hf
+    hf_id: google/fleurs
+    config: fil_ph
+    split: test
+    text_key: transcription
+    language: tl
+    whisper_lang: tl
+    max_samples: 150
+
+  - name: fleurs-ceb          # unsupported by Whisper -> auto-detect, expect failure
+    kind: hf
+    hf_id: google/fleurs
+    config: ceb_ph
+    split: test
+    text_key: transcription
+    language: ceb
+    max_samples: 150
+
+  # --- Polynesian: closest available relative to Hawaiian ---
+  - name: fleurs-mi
+    kind: hf
+    hf_id: google/fleurs
+    config: mi_nz
+    split: test
+    text_key: transcription
+    language: mi
+    whisper_lang: mi
+    max_samples: 150
+
+  # --- genuinely low-resource across scripts/families ---
+  - name: fleurs-yo
+    kind: hf
+    hf_id: google/fleurs
+    config: yo_ng
+    split: test
+    text_key: transcription
+    language: yo
+    whisper_lang: yo
+    max_samples: 150
+
+  - name: fleurs-am
+    kind: hf
+    hf_id: google/fleurs
+    config: am_et
+    split: test
+    text_key: transcription
+    language: am
+    whisper_lang: am
+    max_samples: 150
+
+  - name: fleurs-km           # no word spaces -> judge on CER, not WER
+    kind: hf
+    hf_id: google/fleurs
+    config: km_kh
+    split: test
+    text_key: transcription
+    language: km
+    whisper_lang: km
+    max_samples: 150
+
+  - name: fleurs-lo           # no word spaces -> judge on CER, not WER
+    kind: hf
+    hf_id: google/fleurs
+    config: lo_la
+    split: test
+    text_key: transcription
+    language: lo
+    whisper_lang: lo
+    max_samples: 150
