@@ -71,7 +71,49 @@ class HFCtc:
         return Transcription(text=text.strip(), infer_sec=time.perf_counter() - t0)
 
 
-BACKENDS = {"faster_whisper": FasterWhisper, "hf_ctc": HFCtc}
+class MlxWhisper:
+    """Apple Silicon GPU backend via MLX (Metal).
+
+    CTranslate2 targets CPU and CUDA only, so faster-whisper cannot reach the GPU on a
+    Mac — `device: cuda` simply fails there. mlx_whisper runs the same Whisper weights
+    through MLX, which does use the Metal GPU. That makes the on-device question
+    measurable: how good, how fast, and how cheap is transcription that never leaves
+    the laptop? For contact centers this is a real deployment option, since audio that
+    stays on-device sidesteps a large class of privacy and data-residency problems.
+
+    Note the comparison is implementation-vs-implementation (CTranslate2 vs MLX), not
+    just hardware — quantization schemes differ, so treat quality deltas as a property
+    of the whole stack rather than of the GPU alone.
+    """
+
+    def __init__(self, model_repo="mlx-community/whisper-large-v3-mlx",
+                 warmup=True, **_ignored):
+        import mlx_whisper
+        import numpy as np
+        self._mlx = mlx_whisper
+        self.model_repo = model_repo
+        # mlx_whisper loads weights lazily on the FIRST transcribe() call, which would
+        # charge model-load time to sample #1's latency and make RTF/p50 unfair versus
+        # faster-whisper (which loads in its constructor). Burn that cost here, outside
+        # the timed loop, so the two backends are measured on equal footing.
+        if warmup:
+            self._mlx.transcribe(np.zeros(16000, dtype=np.float32),
+                                 path_or_hf_repo=model_repo, verbose=False)
+
+    def transcribe(self, audio, sr, language=None) -> Transcription:
+        t0 = time.perf_counter()
+        res = self._mlx.transcribe(audio, path_or_hf_repo=self.model_repo,
+                                   language=language, verbose=False)
+        text = (res.get("text") or "") if isinstance(res, dict) else str(res)
+        return Transcription(text=text.strip(),
+                             infer_sec=time.perf_counter() - t0)
+
+
+BACKENDS = {
+    "faster_whisper": FasterWhisper,
+    "hf_ctc": HFCtc,
+    "mlx_whisper": MlxWhisper,
+}
 
 
 def build_backend(spec: dict):

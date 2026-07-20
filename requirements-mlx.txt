@@ -1,0 +1,3 @@
+# Apple Silicon GPU backend (mlx_whisper). macOS + Apple Silicon only.
+mlx>=0.18
+mlx-whisper>=0.4

@@ -1,0 +1,52 @@
+# Apple Silicon GPU (MLX/Metal) vs CPU (CTranslate2) on identical utterances.
+#
+# Answers the on-device question: can transcription run acceptably without the audio
+# ever leaving the machine? For contact centers that matters beyond cost — audio that
+# stays on-device avoids a whole class of privacy and data-residency problems.
+#
+# Dataset names intentionally keep the `-cpu` suffix so they match the cache keys
+# written by fleurs_lowresource_cpu.yaml. `pab.report --compare` pairs models within a
+# (dataset, aug) cell, so identical names are what makes the paired test possible.
+# Datasets are already in the HF cache from that run, so this is compute-only.
+#
+# Caveat when reading results: this compares CTranslate2-int8-on-CPU against
+# MLX-on-GPU — two implementations AND two devices. A quality delta is a property of
+# the whole stack, not of the GPU alone.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: large-v3-mlx-gpu
+    backend: mlx_whisper
+    model_repo: mlx-community/whisper-large-v3-mlx
+    warmup: true          # load weights outside the timed loop; see pab/asr.py
+
+datasets:
+  - name: fleurs-ceb-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: ceb_ph
+    split: test
+    text_key: transcription
+    language: ceb
+    max_samples: 100
+
+  - name: fleurs-mi-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: mi_nz
+    split: test
+    text_key: transcription
+    language: mi
+    whisper_lang: mi
+    max_samples: 100
+
+  - name: fleurs-yo-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: yo_ng
+    split: test
+    text_key: transcription
+    language: yo
+    whisper_lang: yo
+    max_samples: 100
