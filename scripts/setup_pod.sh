@@ -7,6 +7,14 @@ cd "$(dirname "$0")/.."
 echo ">>> [1/4] GPU visible?"
 nvidia-smi -L || { echo "No GPU detected — launch a GPU pod, not CPU."; exit 1; }
 
+# Unauthenticated HF Hub downloads are rate-limited and can stall mid-sweep. That
+# failure is expensive and silent: the process stays alive, the log stops advancing,
+# and you keep paying for a GPU sitting at 0% utilization. Set HF_TOKEN to avoid it.
+if [ -z "${HF_TOKEN:-}" ]; then
+  echo "    WARNING: HF_TOKEN not set — dataset downloads may rate-limit and stall"
+  echo "             the sweep with the GPU idle. Export HF_TOKEN before running."
+fi
+
 PY="${PAB_PY:-python3}"
 
 # Modern base images (Ubuntu 24.04+) ship PEP 668 EXTERNALLY-MANAGED, which makes pip
