@@ -1,0 +1,4 @@
+# CTC backend (wav2vec2 / MMS) — needed only for the `hf_ctc` backend.
+# Kept out of core requirements so the default benchmark stays a light install.
+torch>=2.2
+transformers>=4.40
