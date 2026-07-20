@@ -1,0 +1,82 @@
+# Long-tail tier, CPU variant — runs on a laptop, no GPU rental required.
+#
+# Same model weights as the GPU sweep (large-v3) but int8 rather than fp16, because
+# fp16 is not a useful CPU compute type. The paired tests on the GPU run showed no
+# significant WER difference between fp16 and int8 on any language, so the QUALITY
+# numbers (WER/CER) remain comparable to the GPU rows.
+#
+# RTF / p50 / p95 / $-per-1000min from this config are NOT comparable to the GPU rows
+# — different hardware and compute type. Read quality only from these.
+#
+# Smaller n than the GPU tier (100 vs 150) to keep laptop runtime reasonable; wider
+# confidence intervals are the tradeoff, which `--compare` will show honestly.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: large-v3-int8-cpu
+    backend: faster_whisper
+    model_size: large-v3
+    device: cpu
+    compute_type: int8
+    beam_size: 1
+
+datasets:
+  - name: fleurs-ceb-cpu        # Whisper has no Cebuano -> auto-detect, expect failure
+    kind: hf
+    hf_id: google/fleurs
+    config: ceb_ph
+    split: test
+    text_key: transcription
+    language: ceb
+    max_samples: 100
+
+  - name: fleurs-mi-cpu         # Polynesian: nearest available relative to Hawaiian
+    kind: hf
+    hf_id: google/fleurs
+    config: mi_nz
+    split: test
+    text_key: transcription
+    language: mi
+    whisper_lang: mi
+    max_samples: 100
+
+  - name: fleurs-yo-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: yo_ng
+    split: test
+    text_key: transcription
+    language: yo
+    whisper_lang: yo
+    max_samples: 100
+
+  - name: fleurs-am-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: am_et
+    split: test
+    text_key: transcription
+    language: am
+    whisper_lang: am
+    max_samples: 100
+
+  - name: fleurs-km-cpu         # no word spaces -> judge on CER
+    kind: hf
+    hf_id: google/fleurs
+    config: km_kh
+    split: test
+    text_key: transcription
+    language: km
+    whisper_lang: km
+    max_samples: 100
+
+  - name: fleurs-lo-cpu         # no word spaces -> judge on CER
+    kind: hf
+    hf_id: google/fleurs
+    config: lo_la
+    split: test
+    text_key: transcription
+    language: lo
+    whisper_lang: lo
+    max_samples: 100

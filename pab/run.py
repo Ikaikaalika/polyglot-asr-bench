@@ -36,11 +36,24 @@ def run(config_path):
         for dspec in cfg["datasets"]:
             dname = dspec["name"]
             wlang = dspec.get("whisper_lang")
+            expected = dspec.get("max_samples")
+
+            # Check the cache BEFORE materializing the dataset. Loading a split
+            # downloads audio, so doing it for an already-complete dataset burns
+            # bandwidth and — on a rented GPU — real money, since the accelerator
+            # sits idle for the whole download.
+            paths = {a: cache.pred_path(results_dir, mname, dname, a) for a in augs}
+            done_by_aug = {a: cache.load_done_ids(p) for a, p in paths.items()}
+            if expected is not None and all(
+                    len(d) >= expected for d in done_by_aug.values()):
+                print(f"  {dname}: fully cached ({expected}/aug) — skipping download")
+                continue
+
             # load samples once per dataset, reuse across augmentations
             samples = list(load_dataset_spec(dspec))
             for aug in augs:
-                path = cache.pred_path(results_dir, mname, dname, aug)
-                done = cache.load_done_ids(path)
+                path = paths[aug]
+                done = done_by_aug[aug]
                 n_new = 0
                 for s in samples:
                     if s["id"] in done:
