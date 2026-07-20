@@ -9,11 +9,20 @@ nvidia-smi -L || { echo "No GPU detected — launch a GPU pod, not CPU."; exit 1
 
 PY="${PAB_PY:-python3}"
 
+# Modern base images (Ubuntu 24.04+) ship PEP 668 EXTERNALLY-MANAGED, which makes pip
+# refuse to install outside a venv. In an ephemeral GPU container that guard buys us
+# nothing, so opt out rather than layering a venv over the image's CUDA stack.
+PIP_FLAGS=""
+if "$PY" -c "import os,sys,sysconfig; sys.exit(0 if os.path.exists(os.path.join(sysconfig.get_paths()['stdlib'],'EXTERNALLY-MANAGED')) else 1)"; then
+  PIP_FLAGS="--break-system-packages"
+  echo "    (PEP 668 detected -> using --break-system-packages)"
+fi
+
 echo ">>> [2/4] Installing benchmark + CUDA runtime libs"
-"$PY" -m pip install --quiet --upgrade pip
-"$PY" -m pip install --quiet -r requirements.txt
+"$PY" -m pip install --quiet $PIP_FLAGS --upgrade pip
+"$PY" -m pip install --quiet $PIP_FLAGS -r requirements.txt
 # CTranslate2 (faster-whisper's engine) needs cuBLAS + cuDNN 9 at runtime:
-"$PY" -m pip install --quiet nvidia-cublas-cu12 "nvidia-cudnn-cu12>=9,<10"
+"$PY" -m pip install --quiet $PIP_FLAGS nvidia-cublas-cu12 "nvidia-cudnn-cu12>=9,<10"
 
 echo ">>> [3/4] Putting CUDA libs on the loader path"
 # shellcheck disable=SC1091
