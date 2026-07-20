@@ -1,0 +1,85 @@
+# Long-tail tier on Apple Silicon GPU (MLX/Metal) — free, no GPU rental.
+#
+# Why this exists: on CPU (CTranslate2 int8), Amharic measured RTF 22.8 versus
+# Yoruba's 0.54 — a ~40x blowup. The cause is Whisper's own quality guard: when a
+# segment decodes with low average log-probability it retries at successively higher
+# temperatures, so a language the model cannot handle burns up to 6 full decoding
+# passes per segment and still emits garbage. Compute cost explodes exactly where
+# quality collapses. On CPU that made the remaining languages an ~18-hour run.
+#
+# Sample sizes are deliberately uneven:
+#   - ceb/mi/yo at n=100  (cheap; also gives full overlap with the CPU rows so
+#                          `report --compare` can run a paired CPU-vs-GPU test)
+#   - am/km/lo  at n=30   (the fallback-storm languages; n=30 is already decisive for
+#                          "is this language usable at all", which is the question)
+# Report the n alongside any number from this config — the small-n rows carry wide
+# confidence intervals by construction.
+results_dir: results
+augmentations: ["none"]
+
+models:
+  - name: large-v3-mlx-gpu
+    backend: mlx_whisper
+    model_repo: mlx-community/whisper-large-v3-mlx
+    warmup: true          # load weights outside the timed loop (see pab/asr.py)
+
+datasets:
+  # dataset names match the CPU run's cache keys so the paired comparison works
+  - name: fleurs-ceb-cpu        # Whisper has no Cebuano -> auto-detect, expect failure
+    kind: hf
+    hf_id: google/fleurs
+    config: ceb_ph
+    split: test
+    text_key: transcription
+    language: ceb
+    max_samples: 100
+
+  - name: fleurs-mi-cpu         # Polynesian: nearest available relative to Hawaiian
+    kind: hf
+    hf_id: google/fleurs
+    config: mi_nz
+    split: test
+    text_key: transcription
+    language: mi
+    whisper_lang: mi
+    max_samples: 100
+
+  - name: fleurs-yo-cpu
+    kind: hf
+    hf_id: google/fleurs
+    config: yo_ng
+    split: test
+    text_key: transcription
+    language: yo
+    whisper_lang: yo
+    max_samples: 100
+
+  - name: fleurs-am-cpu         # RTF 22.8 on CPU; degenerate Ethiopic output
+    kind: hf
+    hf_id: google/fleurs
+    config: am_et
+    split: test
+    text_key: transcription
+    language: am
+    whisper_lang: am
+    max_samples: 30
+
+  - name: fleurs-km-cpu         # no word spaces -> judge on CER, not WER
+    kind: hf
+    hf_id: google/fleurs
+    config: km_kh
+    split: test
+    text_key: transcription
+    language: km
+    whisper_lang: km
+    max_samples: 30
+
+  - name: fleurs-lo-cpu         # no word spaces -> judge on CER, not WER
+    kind: hf
+    hf_id: google/fleurs
+    config: lo_la
+    split: test
+    text_key: transcription
+    language: lo
+    whisper_lang: lo
+    max_samples: 30

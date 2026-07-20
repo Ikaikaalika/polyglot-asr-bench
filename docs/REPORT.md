@@ -64,6 +64,54 @@ Confidence intervals are bootstrap percentile intervals over utterances (2000 re
 Degradation **compounds with difficulty** — the weakest language loses the most. These
 are point estimates; a paired clean-vs-telephony test is listed in §5 as follow-up work.
 
+### The long tail — where quality collapses (large-v3)
+
+Six lower-resource FLEURS languages, run on Apple Silicon GPU (MLX). Khmer and Lao are
+written without word spaces, so read **CER**, not WER, for those two.
+
+| Language | n | WER% | CER% | RTF | Failure mode |
+|---|--:|--:|--:|--:|---|
+| Māori (mi) | 100 | 39.5 | 14.9 | 0.24 | marginal |
+| Cebuano (ceb) | 100 | 43.1 | 12.3 | 0.45 | marginal (Whisper has no Cebuano; auto-detected) |
+| Yoruba (yo) | 100 | 96.4 | 45.8 | 0.26 | **confident collapse** |
+| Amharic (am) | 30 | 188 | 116 | 6.6 | **fallback storm** |
+| Khmer (km) | 30 | (n/a) | 101 | 6.3 | **fallback storm** |
+| Lao (lo) | 30 | (n/a) | 102 | 1.0 | fallback storm (intermittent) |
+
+**Two distinct ways a model fails on an unsupported language — and they cost differently:**
+
+- **Confident collapse (Yoruba):** normal RTF (0.26), catastrophic quality (96% WER). The
+  model doesn't know it's failing, so it transcribes fast, cheap, and almost entirely wrong.
+- **Fallback storm (Amharic, Khmer):** RTF explodes to 6–24. Whisper's own quality guard
+  retries low-confidence segments at rising temperatures, so a language it can't handle burns
+  up to 6 decoding passes per segment — and still produces garbage (often degenerate
+  repetition loops). Cost blows up **~40–50×** precisely where quality is worst: Amharic on
+  CPU is RTF 23.7 vs Māori's 0.46.
+
+**The operational lesson:** the languages you serve *worst* can be the ones that blow up your
+GPU budget. A capacity plan sized on English throughput would be off by an order of magnitude.
+
+### CPU (int8) vs Apple Silicon GPU (MLX) — paired on identical utterances
+
+| Language | ΔWER pp (CPU − GPU) | 95% CI | p | Verdict |
+|---|--:|:--|--:|---|
+| Cebuano | +0.19 | [−0.35, +0.75] | 0.55 | not significant |
+| Māori | +0.39 | [−0.60, +1.32] | 0.49 | not significant |
+| Yoruba | +1.39 | [+0.52, +2.23] | 0.002 | significant (small) |
+| Amharic | −52.5 | [−100.9, −11.4] | 0.009 | **significant (large)** |
+
+Two takeaways:
+- **On languages the model handles, the implementation is interchangeable** — int8-on-CPU and
+  MLX-on-GPU are statistically identical (Cebuano, Māori). GPU only buys **speed**: 2.1× on
+  healthy Yoruba, 3.4× on the Amharic fallback storm (RTF 23.7 → 6.6).
+- **In the degenerate regime they diverge wildly** — a 52-point WER gap on Amharic (both still
+  useless, both >100% WER). So *cross-implementation quality comparisons cannot be trusted
+  where the model is already failing.* Compare implementations only on inputs the model handles.
+
+**Hardware mitigates the fallback storm; it does not cure it.** Amharic on GPU is still RTF 6.6
+— 27× a healthy language. No device (CPU/GPU) or precision (int8/fp16) choice rescues an
+unsupported language. The fix is model coverage (MMS, fine-tuning), not compute.
+
 ---
 
 ## 3. Recommendations
@@ -121,10 +169,13 @@ Read these before quoting any number.
    error bar. Repeat-measure before publishing it as a headline.
 5. **No commercial API baseline yet**, so the self-host-vs-buy comparison uses published
    list prices rather than measured ones.
-6. **Long tail incomplete.** Cebuano, Māori, Yoruba, Amharic, Khmer, and Lao are
-   configured (`configs/fleurs_lowresource.yaml`) but did not complete — FLEURS shard
-   downloads for those configs stalled repeatedly. Khmer and Lao additionally need
-   **CER, not WER**, since they are written without word spaces.
+6. **Long-tail sample sizes are uneven.** Cebuano, Māori, and Yoruba ran at n=100;
+   Amharic, Khmer, and Lao at n=30 (the fallback-storm languages, where n=30 already
+   settles "is this usable at all"). Small-n rows carry wide CIs — e.g. Amharic WER
+   [149–232]. Khmer/Lao are word-space-free, so their WER is meaningless; use CER.
+   Also: FLEURS shard downloads for these configs are pathologically slow (~30 min for
+   Māori's first sample), so this tier runs locally, not on rented GPU — the workload is
+   download-bound, not compute-bound.
 7. **Hawaiian and Tongan cannot be evaluated here at all** — neither is in FLEURS, and
    no reference-transcript speech corpus is readily available. Benchmarking them would
    require a different approach (MMS warm start + aligned Bible audio), not this harness.
